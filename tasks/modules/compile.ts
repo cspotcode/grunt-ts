@@ -19,19 +19,22 @@ export interface ICompileResult {
 ///////////////////////////
 // Helper
 ///////////////////////////
-function executeNode(args: string[]): Promise<ICompileResult> {
+function executeTsc(args: string[]): Promise<ICompileResult> {
+    var tscModulePath = '../../customcompiler2/tsc-module.js';
+    var tscModule = require(tscModulePath);
+
     return new Promise((resolve, reject) => {
-        grunt.util.spawn({
-            cmd: 'node',
-            args: args
-        }, (error, result, code) => {
-                var ret: ICompileResult = {
-                    code: code,
-                    // New TypeScript compiler uses stdout for user code errors. Old one used stderr.
-                    output: result.stdout || result.stderr
-                };
-                resolve(ret);
-            });
+        tscModule.executeCommandLine(args, (err, result) => {
+            if (err) {
+                reject(err);
+                return;
+            }
+            var ret: ICompileResult = {
+                code: result.exitCode,
+                output: result.stdout
+            };
+            resolve(ret);
+        });
     });
 }
 
@@ -248,8 +251,7 @@ export function compileAllFiles(targetFiles: string[], target: ITargetOptions, t
     fs.writeFileSync(tempfilename, args.join(' '));
 
     // Execute command
-    return executeNode([tsc, '@' + tempfilename]).then((result: ICompileResult) => {
-
+    return executeTsc(['@' + tempfilename]).then((result: ICompileResult) => {
         if (task.fast !== 'never' && result.code === 0) {
             resetChangedFiles(newFiles, targetName);
         }
